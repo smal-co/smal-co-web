@@ -1,0 +1,354 @@
+(function () {
+  // Connexion lente ou économie de données : .low-bandwidth coupe animations et effets de survol
+  var cn = navigator.connection;
+  if (cn && (cn.saveData || /2g$/.test(cn.effectiveType || ''))) document.body.classList.add('low-bandwidth');
+  // Découpe le manifeste en mots pour l'effet de révélation (le site de référence le fait au build)
+  document.querySelectorAll('[data-words]').forEach(function (p) {
+    var words = p.textContent.trim().split(/\s+/);
+    p.textContent = '';
+    words.forEach(function (w, i) { // DOM plutôt qu'innerHTML : aucun texte interprété comme du HTML
+      var s = document.createElement('span');
+      s.className = 'w'; s.style.setProperty('--i', i); s.textContent = w;
+      p.append(s, ' ');
+    });
+  });
+  // Page unique : refermer le menu mobile après un clic sur un lien
+  var menu = document.getElementById('menu'), burger = document.querySelector('[data-burger]');
+  if (menu && burger) menu.addEventListener('click', function (e) {
+    if (e.target.closest('a') && menu.classList.contains('open')) burger.click();
+  });
+})();
+﻿(function () {
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('low-bandwidth');
+  var header = document.querySelector('[data-header]');
+  var burger = document.querySelector('[data-burger]');
+  var menu = document.getElementById('menu');
+
+  function onScroll() {
+    header.classList.toggle('scrolled', window.scrollY > 24);
+    // barre de progression de lecture sous le menu (0 → 1), voir .top::after
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    header.style.setProperty('--sp', max > 0 ? Math.min(1, window.scrollY / max).toFixed(4) : 0);
+  }
+  // une mise à jour par image affichée (requestAnimationFrame) : défilement fluide, sans à-coups
+  var ticking = false;
+  if (header) { onScroll(); window.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(function () { ticking = false; onScroll(); }); } }, { passive: true }); }
+
+  if (header && burger && menu) {
+    burger.addEventListener('click', function () {
+      var open = burger.getAttribute('aria-expanded') !== 'true';
+      burger.setAttribute('aria-expanded', String(open));
+      menu.classList.toggle('open', open);
+      header.classList.toggle('menu-open', open);
+      document.body.classList.toggle('nav-locked', open);
+    });
+    // clic sur le fond flouté, ou retour en largeur bureau : on referme
+    header.addEventListener('click', function (e) { if (e.target === header && menu.classList.contains('open')) burger.click(); });
+    matchMedia('(min-width: 869px)').addEventListener('change', function (e) { if (e.matches && menu.classList.contains('open')) burger.click(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && menu.classList.contains('open')) burger.click();
+    });
+  }
+
+  var targets = document.querySelectorAll('[data-reveal], [data-words]');
+  if (reduce || !('IntersectionObserver' in window)) {
+    targets.forEach(function (t) { t.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -6% 0px' });
+    targets.forEach(function (t) { io.observe(t); });
+  }
+
+  var counters = document.querySelectorAll('[data-count]');
+  if (counters.length && !reduce && 'IntersectionObserver' in window) {
+    var co = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        co.unobserve(en.target);
+        var el = en.target, end = +el.getAttribute('data-count'), t0 = null;
+        function step(t) {
+          if (t0 === null) t0 = t;
+          var p = Math.min((t - t0) / 1400, 1), e = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(end * e);
+          if (p < 1) requestAnimationFrame(step);
+        }
+        el.textContent = '0'; requestAnimationFrame(step);
+      });
+    }, { threshold: 0.6 });
+    counters.forEach(function (c) { co.observe(c); });
+  }
+})();
+
+
+// adresse e-mail assemblée au chargement : absente du HTML, donc invisible pour les robots collecteurs
+(function () {
+  document.querySelectorAll('[data-u][data-d]').forEach(function (el) {
+    var m = el.getAttribute('data-u') + '@' + el.getAttribute('data-d');
+    if (el.hasAttribute('data-copy')) { el.setAttribute('data-copy', m); return; }
+    el.href = 'mailto:' + m; el.textContent = m;
+  });
+})();
+
+// bouton « Copier l’adresse »
+(function () {
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    var label = b.textContent;
+    b.addEventListener('click', function () {
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(b.getAttribute('data-copy')).then(function () {
+        b.textContent = 'Adresse copiée'; setTimeout(function () { b.textContent = label; }, 2000);
+      });
+    });
+  });
+})();
+
+// hero : progression du scroll (0 → 1) exposée en --p pour le zoom/fondu/parallaxe en CSS
+(function () { var h = document.querySelector('[data-hero]');
+  if (!h || matchMedia('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('low-bandwidth')) return;
+  var ticking = false;
+  function upd() { ticking = false; var hh = h.offsetHeight;
+    h.style.setProperty('--p', Math.min(Math.max(scrollY / hh, 0), 1).toFixed(3));
+    // flou, zoom et voile (voir .hero-img, .hero-img-blur, .hero-veil) : progression sur les 550 premiers px
+    h.style.setProperty('--b', Math.min(Math.max(scrollY / 550, 0), 1).toFixed(3)); }
+  addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(upd); } }, { passive: true }); upd(); })();
+
+// galeries défilantes : .is-at-start / .is-at-end selon la position, boutons ‹ › (une carte par clic), glisser à la souris
+(function () {
+  document.querySelectorAll('.scroll-gallery-wrapper').forEach(function (wrapper) {
+    var sc = wrapper.firstElementChild;
+    if (!sc) return;
+    function upd() {
+      wrapper.classList.toggle('is-at-start', sc.scrollLeft <= 5);
+      wrapper.classList.toggle('is-at-end', sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 5);
+    }
+    sc.addEventListener('scroll', upd, { passive: true });
+    addEventListener('resize', upd);
+    addEventListener('load', upd); // les images lazy changent la largeur défilable
+    upd();
+
+    function step() { // largeur d'une carte + l'écart entre cartes
+      var first = sc.firstElementChild;
+      return first ? first.getBoundingClientRect().width + (parseFloat(getComputedStyle(sc).columnGap) || 0) : sc.clientWidth * .8;
+    }
+    wrapper.querySelectorAll('.scroll-prev, .scroll-next').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        sc.scrollBy({ left: btn.classList.contains('scroll-prev') ? -step() : step(), behavior: 'smooth' });
+      });
+    });
+
+    // glisser à la souris (le tactile et le trackpad défilent déjà nativement)
+    var down = false, moved = false, x0 = 0, left0 = 0;
+    sc.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      down = true; moved = false; x0 = e.clientX; left0 = sc.scrollLeft;
+    });
+    sc.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      var dx = e.clientX - x0;
+      if (!moved && Math.abs(dx) < 5) return; // simple clic : on laisse passer
+      if (!moved) { moved = true; sc.classList.add('is-dragging'); sc.setPointerCapture(e.pointerId); }
+      sc.scrollLeft = left0 - dx;
+    });
+    function end() {
+      if (!down) return;
+      down = false;
+      sc.classList.remove('is-dragging'); // le scroll-snap recale sur la carte la plus proche
+    }
+    sc.addEventListener('pointerup', end);
+    sc.addEventListener('pointercancel', end);
+    sc.addEventListener('dragstart', function (e) { e.preventDefault(); }); // pas de glisser natif des images
+    sc.addEventListener('click', function (e) { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+  });
+})();
+
+// survol à la souris : inclinaison ±4° (--rx/--ry) sur les visuels de la page Communication
+(function () {
+  if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  var still = matchMedia('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('low-bandwidth');
+  document.querySelectorAll('.bento-card').forEach(function (el) {
+    var tilt = !still;
+    el.addEventListener('mousemove', function (e) {
+      var r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      el.style.setProperty('--mouse-x', x + 'px');
+      el.style.setProperty('--mouse-y', y + 'px');
+      if (!tilt) return;
+      el.classList.add('is-tilting');
+      el.style.setProperty('--rx', ((.5 - y / r.height) * 8).toFixed(2) + 'deg');
+      el.style.setProperty('--ry', ((x / r.width - .5) * 8).toFixed(2) + 'deg');
+    });
+    if (tilt) el.addEventListener('mouseleave', function () {
+      el.classList.remove('is-tilting');
+      el.style.removeProperty('--rx'); el.style.removeProperty('--ry');
+    });
+  });
+})();
+
+// image en erreur : remplacée par un bloc monogramme (logos exclus, leur alt suffit)
+(function () {
+  function swap(img) {
+    if (!img.parentNode || /logos\//.test(img.getAttribute('src') || '')) return;
+    var d = document.createElement('div'), w = img.getAttribute('width'), h = img.getAttribute('height');
+    d.className = (img.className + ' img-fallback').trim();
+    d.textContent = 'SMAL & CO';
+    if (img.alt) { d.setAttribute('role', 'img'); d.setAttribute('aria-label', img.alt); } else d.setAttribute('aria-hidden', 'true');
+    if (w && h) d.style.aspectRatio = w + ' / ' + h;
+    img.replaceWith(d);
+  }
+  document.addEventListener('error', function (e) { if (e.target.tagName === 'IMG') swap(e.target); }, true);
+  // erreurs survenues avant l'exécution du script (chargé en defer)
+  Array.prototype.forEach.call(document.images, function (img) { if (img.complete && !img.naturalWidth && img.getAttribute('src')) swap(img); });
+})();
+
+// contact.html?objet=Partenariat+Cyclisme : présélectionne le motif (liens des offres partenaires), puis guide l'œil vers le champ
+(function () {
+  var sel = document.getElementById('contact-subject');
+  var q = new URLSearchParams(location.search).get('objet') || new URLSearchParams(location.search).get('subject');
+  if (!sel || !q) return;
+  var opt = Array.prototype.find.call(sel.options, function (o) { return o.value.toLowerCase() === q.trim().toLowerCase(); });
+  if (!opt) return; // valeur inconnue dans l'URL : on laisse le choix par défaut
+  sel.value = opt.value;
+  sel.classList.add('is-prefilled');
+  sel.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+})();
+
+// menu « Nos Pôles » : clic/toucher pour ouvrir (le survol suffit à la souris), Échap ou clic ailleurs pour fermer
+(function () {
+  document.querySelectorAll('.nav-dd').forEach(function (dd) {
+    var btn = dd.querySelector('.nav-dd-toggle');
+    if (!btn) return;
+    function set(open) { dd.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open)); }
+    btn.addEventListener('click', function () { set(!dd.classList.contains('open')); });
+    document.addEventListener('click', function (e) { if (!dd.contains(e.target)) set(false); });
+    dd.addEventListener('keydown', function (e) { if (e.key === 'Escape' && dd.classList.contains('open')) { set(false); btn.focus(); } });
+  });
+})();
+
+// fond photo fixe (.backdrop[data-backdrop="N"]) : --b de 0 à 1 sur les N premiers px de défilement (flou + voile en CSS)
+(function () {
+  var bd = document.querySelector('[data-backdrop]');
+  if (!bd || matchMedia('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('low-bandwidth')) return;
+  var range = +bd.getAttribute('data-backdrop') || 500, ticking = false;
+  function upd() { ticking = false; bd.style.setProperty('--b', Math.min(Math.max(scrollY / range, 0), 1).toFixed(3)); }
+  addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(upd); } }, { passive: true });
+  upd();
+})();
+
+// formulaire de contact : envoi Netlify en fetch puis animation de succès ; en cas d'échec, envoi classique vers /merci.html (aucun message perdu)
+(function () {
+  var form = document.querySelector('form[name="contact"]'), ok = document.querySelector('[data-success]');
+  if (!form || !ok || !window.fetch) return;
+  var btn = form.querySelector('[type=submit]');
+  form.addEventListener('submit', function (e) {
+    var captcha = form.querySelector('[name="g-recaptcha-response"]');
+    if (captcha && !captcha.value) return; // reCAPTCHA non coché : on laisse Netlify gérer en envoi classique
+    e.preventDefault();
+    btn.disabled = true; btn.textContent = 'Envoi…';
+    fetch('/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(new FormData(form)).toString() })
+      .then(function (r) {
+        if (!r.ok) throw r;
+        form.reset(); form.hidden = true; ok.hidden = false; form.parentNode.classList.add('is-sent');
+        ok.querySelector('.success-title').focus({ preventScroll: true });
+        ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      })
+      .catch(function () { form.submit(); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Envoyer'; });
+  });
+  ok.querySelector('[data-success-reset]').addEventListener('click', function () {
+    if (window.grecaptcha) try { grecaptcha.reset(); } catch (err) {}
+    ok.hidden = true; form.hidden = false; form.parentNode.classList.remove('is-sent');
+    form.querySelector('[name=nom]').focus();
+  });
+})();
+
+// merci.html : cycliste pixel qui roule sur un sol qui défile et saute les plots (façon jeu de course rétro)
+(function () {
+  var cv = document.getElementById('bikeRunnerCanvas');
+  if (!cv || !cv.getContext) return;
+  var ctx = cv.getContext('2d'), S = 4, W = cv.width / S, H = cv.height / S, G = 31; // dessin en basse résolution, agrandi x4
+  var cones = [W + 10, W + 70], jump = -1, last = 0, dist = 0;
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+  function px(x, y, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); }
+  function line(x0, y0, x1, y1, c) { var n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1; for (var i = 0; i <= n; i++) px(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, c); }
+  function wheel(cx, cy, a) {
+    for (var t = 0; t < 6.29; t += .2) px(cx + 4 * Math.cos(t), cy + 4 * Math.sin(t), '#b794ff');
+    line(cx - 3 * Math.cos(a), cy - 3 * Math.sin(a), cx + 3 * Math.cos(a), cy + 3 * Math.sin(a), '#7a3ee0');
+    line(cx + 3 * Math.sin(a), cy - 3 * Math.cos(a), cx - 3 * Math.sin(a), cy + 3 * Math.cos(a), '#7a3ee0');
+  }
+  function leg(hx, hy, bx, by, a, c) {
+    var fx = bx + 2.5 * Math.cos(a), fy = by + 2.5 * Math.sin(a), kx = (hx + fx) / 2 + 3, ky = (hy + fy) / 2 - 1;
+    line(hx, hy, kx, ky, c); line(kx, ky, fx, fy, c);
+  }
+  function frame(t) {
+    var dt = Math.min(t - last, 50) / 1000; last = t; dist += dt * 60; // 60 px logiques/s
+    ctx.clearRect(0, 0, W, H);
+    // sol + cailloux qui défilent
+    line(0, G, W, G, 'rgba(255,255,255,.35)');
+    for (var i = 0; i < 14; i++) px(((i * 37 - dist) % W + W) % W, G + 1 + (i % 2), 'rgba(255,255,255,.25)');
+    // plots oranges ; le cycliste saute quand l'un approche
+    for (i = 0; i < cones.length; i++) {
+      cones[i] -= dt * 60;
+      if (cones[i] < -4) cones[i] = W + 20 + ((dist * 7) % 60);
+      if (jump < 0 && cones[i] > 44 && cones[i] < 50) jump = 0;
+      line(cones[i] - 1, G - 1, cones[i] + 1, G - 1, '#ff7a1a'); line(cones[i], G - 3, cones[i], G - 1, '#ff7a1a');
+    }
+    var y = 0;
+    if (jump >= 0) { jump += dt / .55; y = jump >= 1 ? (jump = -1, 0) : -11 * 4 * jump * (1 - jump); }
+    var a = dist / 4, by = 27 + y;
+    // traînée mauve -> orange derrière le vélo
+    for (i = 0; i < 12; i++) px(19 - i * 1.5, by - 4 + (i % 3), i < 6 ? '#ff7a1a' : '#7a3ee0');
+    leg(31, by - 9, 33, by, a + Math.PI, '#b3541a');
+    wheel(26, by, a); wheel(40, by, a);
+    [[26, by, 33, by], [33, by, 31, by - 7], [31, by - 7, 26, by], [31, by - 7, 39, by - 7], [39, by - 7, 33, by], [39, by - 7, 40, by], [39, by - 7, 41, by - 9]]
+      .forEach(function (l) { line(l[0], l[1], l[2], l[3], '#7a3ee0'); });
+    line(29, by - 8, 32, by - 8, '#fff'); // selle
+    leg(31, by - 9, 33, by, a, '#ff7a1a');
+    line(31, by - 9, 37, by - 14, '#ff7a1a'); line(37, by - 14, 41, by - 9, '#ff7a1a'); // buste, bras
+    ctx.fillStyle = '#fff'; ctx.fillRect(37, by - 18, 3, 3); // tête
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+
+// Vignette sécurité du pied de page : lit /security-status.json (écrit par le contrôle quotidien GitHub Actions)
+(function () {
+  var box = document.querySelector('[data-sec]');
+  if (!box) return;
+  var chip = box.querySelector('.sec-chip'), panel = box.querySelector('.sec-panel');
+  function q(s) { return box.querySelector(s); }
+  function warn(label, title, date) {
+    box.setAttribute('data-state', 'warn');
+    q('[data-sec-label]').textContent = label; q('[data-sec-title]').textContent = title; q('[data-sec-date]').textContent = date;
+  }
+  fetch('/security-status.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
+    var list = q('[data-sec-list]');
+    (d.shields || []).forEach(function (t) { var li = document.createElement('li'); li.textContent = t; list.appendChild(li); });
+    var t = d.lastCheck && new Date(d.lastCheck);
+    if (d.status !== 'verified' || !t || isNaN(t)) return warn('Site protégé', 'Protections actives', 'Premier audit automatique à venir.');
+    var when = t.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + ' à ' + t.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    // contrôle quotidien : plus de 48 h sans audit réussi = on l'affiche honnêtement
+    if (Date.now() - t > 48 * 36e5) return warn('Audit en retard', 'Protections actives', 'Dernier audit réussi le ' + when + '.');
+    q('[data-sec-label]').textContent = 'Site protégé · vérifié';
+    q('[data-sec-date]').textContent = 'Dernier audit automatique le ' + when + (d.headersGrade ? ' · en-têtes ' + d.headersGrade : '') + '.';
+  }).catch(function () { warn('Site protégé', 'Protections actives', 'État du dernier audit indisponible.'); });
+
+  function toggle(open) {
+    panel.hidden = !open; chip.setAttribute('aria-expanded', open);
+  }
+  chip.addEventListener('click', function () { toggle(panel.hidden); });
+  document.addEventListener('click', function (e) { if (!panel.hidden && !box.contains(e.target)) toggle(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !panel.hidden) { toggle(false); chip.focus(); } });
+
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('low-bandwidth') || !matchMedia('(hover: hover)').matches) return;
+  chip.addEventListener('pointermove', function (e) {
+    var r = chip.getBoundingClientRect();
+    chip.classList.add('is-tilting');
+    chip.style.setProperty('--rx', ((.5 - (e.clientY - r.top) / r.height) * 14).toFixed(2) + 'deg');
+    chip.style.setProperty('--ry', (((e.clientX - r.left) / r.width - .5) * 10).toFixed(2) + 'deg');
+  });
+  chip.addEventListener('pointerleave', function () {
+    chip.classList.remove('is-tilting'); chip.style.removeProperty('--rx'); chip.style.removeProperty('--ry');
+  });
+})();
