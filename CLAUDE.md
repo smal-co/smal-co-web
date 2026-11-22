@@ -8,8 +8,7 @@ La personne qui te parle n'est PAS développeuse. Explique tout en français sim
 - Lance `git pull` puis `git status`. Si le dossier n'est pas propre, préviens et arrête-toi.
 
 ## 1. Interdits absolus
-- Ne JAMAIS commiter, pousser ou fusionner sur `main`. Aucun `git push --force`.
-- Ne JAMAIS publier sans le « OUI » explicite de la personne (voir §4). « ok », « vas-y », un pouce ou un silence ne suffisent pas : il faut « oui, publie ».
+- Ne JAMAIS commiter ni pousser directement sur `main`. Aucun `git push --force`. Passe toujours par une branche et une pull request.
 - Ne JAMAIS toucher sans demander à : `_headers`, `.github/`, `robots.txt`, `sitemap.xml`, `CLAUDE.md`, les balises `canonical`, `og:*`, `twitter:*` et `robots` dans le `<head>`.
 - Ne JAMAIS supprimer de fichier, ni renommer ou déplacer un dossier (`team/`, `img/`, `logos/`, `assets/`).
 - Ne JAMAIS écrire de mot de passe, clé ou identifiant dans un fichier.
@@ -34,8 +33,8 @@ La personne qui te parle n'est PAS développeuse. Explique tout en français sim
 
 ## 5. Après le « oui, publie »
 - Ouvre une pull request vers `main` (`gh pr create`) avec un titre clair et la liste des changements.
-- Ne fusionne PAS toi-même. Seuls Matthieu (président) et le relecteur désigné fusionnent.
-- Dis à la personne : « La demande est envoyée à un relecteur. Le site sera mis à jour après sa validation. »
+- Fusionne-la toi-même (`gh pr merge --squash --delete-branch`). La personne est autonome, aucune autre validation n'est requise.
+- Dis : « C'est publié, le site sera à jour dans 1 à 2 minutes. » Rappelle le retour arrière (Cloudflare, Déploiements, Rollback) si besoin.
 
 ## 6. Commits
 Format : `<Type> : <description courte> (par <Prénom>)` avec Type parmi `Texte`, `Photo`, `Page`, `Correctif`.
