@@ -427,6 +427,8 @@ body:has(.hero-logo,.backdrop) .foot{position:relative;z-index:1}
 .events-stack{grid-template-columns:1fr}
 .events-stack .event-gallery{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
 .events-stack .gallery-soon{aspect-ratio:21/9}
+.events-stack .event-gallery.gallery-3{grid-template-columns:repeat(3,1fr)} /* 6 photos : 3x2 */
+@media (max-width:640px){.events-stack .event-gallery.gallery-3{grid-template-columns:repeat(2,1fr)}.event dl.dl-text{grid-template-columns:1fr}}
 .gallery-img{width:100%;height:250px;object-fit:cover;border-radius:.5rem;transition:transform .4s var(--ease)}
 .gallery-img:hover{transform:scale(1.02)}
 /* Étape du Tour : affiche + galerie horizontale */
